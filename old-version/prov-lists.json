@@ -1,0 +1,31 @@
+{
+  "active": "Ollama 7b",
+  "providers": {
+    "aeroill": {
+      "apiKey": "aero_live_n57sZhOC4ec5oNRM",
+      "baseUrl": "https://capi.aerolink.lat/"
+    },
+    "ollama": {
+      "apiKey": "ollama",
+      "baseUrl": "http://localhost:11434",
+      "model": "qwen2.5-coder:1.5b"
+    },
+    "FreeModel": {
+      "apiKey": "fe_oa_57bb6eb3e417e",
+      "baseUrl": "https://cc.freemodel.dev"
+    },
+    "tokeness": {
+      "apiKey": "sk-XNDbqDqkZxmat20hm",
+      "baseUrl": "https://tokeness.io/"
+    },
+    "agentRou": {
+      "apiKey": "sk-88kKMKKpLVNzCdVsz",
+      "baseUrl": "https://agentrouter.org/"
+    },
+    "Ollama 7b": {
+      "apiKey": "ollama",
+      "baseUrl": "http://localhost:11434",
+      "model": "qwen2.5-coder:7b"
+    }
+  }
+}

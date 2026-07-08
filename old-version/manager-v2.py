@@ -644,13 +644,9 @@ class ProviderManager(tk.Tk):
 
             key = prov.get("apiKey", "")
             model = prov.get("model", "")
-            reason = prov.get("model_reasoning_effort")
-            if not reason:
-                reason = "high"
+            reason = prov.get("model_reasoning_effort", "high")
             url = prov.get("baseUrl", "")
-            wire = prov.get("wire_api")
-            if not wire:
-                wire = "responses"
+            wire = prov.get("wire_api", "responses")
 
             # auth.json
             auth = json.dumps({"OPENAI_API_KEY": key}, indent=2)
@@ -664,7 +660,7 @@ class ProviderManager(tk.Tk):
                 f'model_reasoning_effort = "{reason}"',
                 'disable_response_storage = true',
                 'preferred_auth_method = "apikey"',
-                '',
+                "",
                 f'[model_providers.{name}]',
                 f'name = "{name}"',
                 f'base_url = "{url}"',

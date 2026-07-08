@@ -241,3 +241,8 @@ CLAUDE.md
 /.brainsync
 .mcp.json
 /.vscode
+AGENTS.md
+GEMINI.md
+/.cursor
+/.kiro
+/.windsurf

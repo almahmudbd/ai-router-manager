@@ -1,82 +1,154 @@
-# Provider Manager — Codex & Claude
+# Provider Manager — Claude · Codex · Gemini
 
-A unified, secure configuration manager for managing multiple API providers for **Claude** and **Codex**. This tool allows you to store, organize, and switch between different AI provider configurations through a simple GUI.
+**Version 3.0.0**
+
+A unified, secure desktop tool for managing multiple API-provider configurations for the major coding agents — **Claude Code**, **Codex (OpenAI)**, and **Gemini**. Store your providers once in an encrypted vault, then generate each agent's config file (and switch the active provider) from a single GUI.
+
+> **`manager_v3.py` is the whole app — a single self-contained file.** Keep just `manager_v3.py` and your `providers.enc`; no side-modules are required. (Earlier split-module and v1 editions have been removed.)
+
+---
 
 ## ✨ Features
 
-- **Encrypted Database**: All provider information (API keys, models, URLs) is stored in an encrypted file (`providers.enc`) protected by a password of your choice.
-- **Unified Management**: Manage both Claude and Codex providers in a single application.
-- **Automatic Config Generation**:
-  - **Claude**: Generates `settings.json` with your API keys and environment settings.
-  - **Codex**: Generates `auth.json` and `config.toml` files automatically.
-- **Easy Import**: Import existing configurations from `settings.json`, `auth.json`, `.toml` files, or Codex backups.
-- **Provider Switching**: Quickly set an "Active" provider to generate configurations instantly.
-- **Security First**: Uses `cryptography` (Fernet) with PBKDF2 key derivation to ensure your secrets remain safe.
+- **Three agents in one place** — manage Claude, Codex, and Gemini providers side by side.
+- **Envelope encryption with a daily PIN** — the vault is encrypted with a random data key that is wrapped twice: once under a strong **recovery password**, once under a short **daily PIN**. Unlock day-to-day with the PIN; the password is your recovery. Wrong PINs lock out after 5 tries (password always works and resets the lockout).
+- **Preview before write** — see a unified diff of exactly what will change on disk before any config file is touched.
+- **Automatic config generation** —
+  - **Claude** → `settings.json` (API key + `env` block, theme, effort).
+  - **Codex** → `auth.json` + `config.toml` (model provider, wire API, reasoning effort).
+  - **Gemini** → `.env` + `settings.json` (merged, preserving your existing keys).
+- **Safe writes** — any file that would be overwritten is backed up to `*.bak` first.
+- **Import** existing configs from `settings.json`, `auth.json`, or `config.toml` — the API key is captured and stored encrypted.
+- **Redacted export** — dump a human-readable YAML of your whole setup with API keys masked to their last 4 chars (for eyeballing/diffing, not importable).
+- **Automatic v1 → v2 migration** — opening an old (v1) `providers.enc` offers a one-click upgrade, backing up the original first.
+
+---
+
+## 🗂️ Project Structure / File Map
+
+```
+ai-router-config-manager/
+│
+├── manager_v3.py       ★ The app. Single self-contained file — crypto,
+│                          agent-target, export, and GUI logic are all bundled
+│                          in here. This is the only file you need to run.
+│
+├── providers.enc         Encrypted vault (your data — DO NOT SHARE / commit).
+├── providers.enc.v1.bak  Local backup from the v1→v2 migration (git-ignored).
+│
+├── requirements.txt      Python dependencies (cryptography).
+├── run.bat               Windows launcher.
+├── run.sh                Linux/macOS launcher.
+├── README.md             This file.
+└── LICENSE
+```
+
+### How v3 is organized
+
+`manager_v3.py` is one file with four clearly separated sections:
+
+```
+                 manager_v3.py  (single file)
+   ┌─────────────┬─────────────┬─────────────┬──────────────┐
+   │ 1. crypto   │ 2. targets  │ 3. export   │ 4. GUI + app │
+   │ (vault)     │ (agent I/O) │ (redacted)  │  flow        │
+   └─────────────┴─────────────┴─────────────┴──────────────┘
+                        │
+              Claude / Codex / Gemini config files on disk
+```
+
+- **Section 1 (crypto)** never touches agent files; it only encrypts/decrypts the vault (`providers.enc`).
+- **Section 2 (targets)** never touches the vault; it only reads/writes the agents' own config files. Adding a 4th agent = one new `Target` entry + its generate/read strategy.
+- **Section 3 (export)** is a pure, dependency-free view used by the "Export (redacted)" button.
+- **Section 4 (GUI)** owns the window, the unlock/migration dialogs, provider add/edit/delete/set-active, and the "read → preview → write" agent panel.
+
+---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-- **Python 3.x** installed on your system.
+- **Python 3.x** (with `tkinter`, included in standard CPython installs).
 - A terminal or command prompt.
 
 ### Installation
 
-1. **Clone or download** this repository to your local machine.
-2. **Install dependencies** using `pip`:
+```bash
+pip install -r requirements.txt
+```
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+### Running
 
-### Usage
-
-#### Running the application
-
-On **Windows**, you can simply run:
+**Windows:**
 
 ```cmd
-run.bat
+python manager_v3.py
 ```
 
-Or via **Python**:
+**Linux / macOS:**
 
 ```bash
-python manager.py
+python3 manager_v3.py
 ```
 
-#### Using the tool
+> `run.bat` (Windows) and `run.sh` (Linux/macOS) launch `manager_v3.py` for you.
 
-1. **Set a Password**: Upon first launch, you will be prompted to create a new database password. **Do not forget this password**, as it is required to access your providers.
-2. **Add Providers**: Click **Add** to create a new provider entry for either Claude or Codex.
-3. **Configure Details**: Enter the Name, API Key, Base URL, and Model.
-4. **Generate Configs**:
-   - Select your desired Claude/Codex settings path.
-   - Select the provider you want to use.
-   - Click **Set Active**.
-   - Click **Generate Config**.
-5. **Importing**: Use the **Import** button to bring in existing configurations from your current setup.
+---
 
-## 🛠️ Technical Details
+## 🧭 Usage
 
-- **GUI Framework**: `tkinter`
-- **Encryption**: `cryptography` (Fernet symmetric encryption)
-- **Storage Format**: Encrypted JSON
+1. **First launch** — set a strong **recovery password**, then a short **daily PIN** (≥ 4 digits). *Do not forget the password* — it's the only recovery path if the PIN gets locked.
+2. **Pick an agent** — Claude, Codex, or Gemini (radio buttons at the top).
+3. **Add a provider** — click **Add**, then fill in Name, API Key, Base URL, Model (Codex also has Wire API and Reasoning effort).
+4. **Set active** — select a provider and click **Set Active**.
+5. **Point at the config path** — the agent panel shows the default path (`~/.claude/settings.json`, `~/.codex`, `~/.gemini`); use **Browse** to change it.
+6. **Preview → Write** — click **Preview changes** to see the diff, then **Write config** to apply (existing files are backed up first).
+7. **Import / Export / Change PIN / Change Password** — available from the bottom bar.
 
-## 🛡️ Security & Sharing
+---
 
-**IMPORTANT: Never share your `providers.enc` file with anyone!** It contains your encrypted provider data.
+## 🔐 Security Model
 
-If you want to share this project (e.g., on GitHub), ensure you only include the following files:
+- **Cipher:** `cryptography` Fernet (AES-128-CBC + HMAC).
+- **Key derivation:** PBKDF2-HMAC-SHA256, 200 000 iterations, random 16-byte salt.
+- **Envelope:** a random 32-byte **DEK** encrypts the database; the DEK is wrapped separately by the password-derived key and the PIN-derived key.
+- **Lockout:** 5 wrong PIN attempts disables PIN unlock until you authenticate with the password.
 
-- `manager.py` (The main application)
-- `requirements.txt` (Dependency list)
-- `run.bat` (Windows launcher)
-- `run.sh` (Linux launcher)
-- `README.md` (Documentation)
+On-disk vault (`providers.enc`) shape:
 
-### 🚫 DO NOT SHARE:
-- `providers.enc` (Contains your encrypted database)
-- Any generated `settings.json`, `auth.json`, or `config.toml` files.
-- `__pycache__/` directories.
+```json
+{
+  "version": 2,
+  "kdf": { "salt": "<b64>", "iterations": 200000 },
+  "wrap_pw":  "<fernet token encrypting the DEK, key = derive(password)>",
+  "wrap_pin": "<fernet token encrypting the DEK, key = derive(pin)>",
+  "meta": { "pin_fails": 0, "pin_locked": false },
+  "payload": "<fernet token encrypting the JSON database, key = DEK>"
+}
+```
 
+---
+
+## 🛡️ Sharing Safety
+
+**Never share or commit these:**
+
+- `providers.enc` — your encrypted vault.
+- `providers.enc.v1.bak` and any `*.bak` files.
+- Generated `settings.json`, `auth.json`, `config.toml`, `.env`.
+- `__pycache__/`.
+
+**Safe to share:** `manager_v3.py`, `requirements.txt`, `run.bat`, `run.sh`, `README.md`, `LICENSE`.
+
+---
+
+## 📌 Known Notes
+
+- `requirements.txt` lists only `cryptography`; `tkinter` ships with standard Python.
+- On first run against an old (v1) `providers.enc`, the app migrates it to the v2 envelope format and writes a one-time `providers.enc.v1.bak`.
+
+---
+
+## Version History
+
+- **3.0.0** — Single-file edition (`manager_v3.py`). All logic inlined into one self-contained script. Adds Gemini, PIN + password envelope encryption, preview-diff before write, redacted YAML export, and automatic v1 → v2 migration. Import captures the API key from an existing config (stored encrypted). Earlier split-module (v2) and single-password (v1) editions have been removed.
