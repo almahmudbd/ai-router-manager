@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Provider Manager v3 — single-file edition (Claude · Codex · Gemini).
+Provider Manager v3.2 — single-file tool (Claude · Codex · Gemini).
 
 Everything the app needs lives in THIS one file. Just keep manager_v3.py plus
 your encrypted providers.enc; no pv_*.py side-modules are required anymore.
@@ -337,18 +337,20 @@ def _gen_codex(name: str, prov: dict) -> dict[str, str]:
     url = prov.get("baseUrl", "")
     wire = prov.get("wire_api") or "responses"
     auth = json.dumps({"OPENAI_API_KEY": key}, indent=2)
+    # Quote provider name in section header to handle dots/spaces safely
+    safe = name if name.isidentifier() else f'"{name}"'
     toml_lines = [
-        f'model_provider = "{name}"',
         f'model = "{model}"',
+        f'model_provider = "{name}"',
         f'model_reasoning_effort = "{reason}"',
-        "disable_response_storage = true",
-        'preferred_auth_method = "apikey"',
         "",
-        f"[model_providers.{name}]",
+        "[model_providers]",
+        f"[model_providers.{safe}]",
         f'name = "{name}"',
-        f'base_url = "{url}"',
-        f'wire_api = "{wire}"',
     ]
+    if url:
+        toml_lines.append(f'base_url = "{url}"')
+    toml_lines.append(f'wire_api = "{wire}"')
     return {"auth.json": auth, "config.toml": "\n".join(toml_lines)}
 
 
@@ -429,7 +431,7 @@ def _read_codex(path: str) -> dict | None:
     auth_path = os.path.join(path, "auth.json")
     if not os.path.exists(config_path) and not os.path.exists(auth_path):
         return None
-    url = model = provider = ""
+    url = model = provider = wire = reason = ""
     try:
         if os.path.exists(config_path):
             with open(config_path, "r", encoding="utf-8") as f:
@@ -437,19 +439,26 @@ def _read_codex(path: str) -> dict | None:
                     s = line.strip()
                     if s.startswith("base_url ="):
                         url = _parse_toml_value(s)
-                    elif s.startswith("model ="):
+                    elif s.startswith("model_reasoning_effort ="):
+                        reason = _parse_toml_value(s)
+                    elif s.startswith("model ="):  # "model =" must come after "model_reasoning_effort ="
                         model = _parse_toml_value(s)
                     elif s.startswith("model_provider ="):
                         provider = _parse_toml_value(s)
+                    elif s.startswith("wire_api ="):
+                        wire = _parse_toml_value(s)
         key = ""
         if os.path.exists(auth_path):
             with open(auth_path, "r", encoding="utf-8") as f:
                 key = json.loads(f.read() or "{}").get("OPENAI_API_KEY", "")
         return {"provider_guess": provider or url or None, "baseUrl": url,
-                "model": model, "apiKey": key, "apiKey_masked": _mask(key),
+                "model": model, "wire_api": wire,
+                "model_reasoning_effort": reason,
+                "apiKey": key, "apiKey_masked": _mask(key),
                 "raw_ok": True}
     except (OSError, json.JSONDecodeError):
         return {"provider_guess": None, "baseUrl": "", "model": "",
+                "wire_api": "", "model_reasoning_effort": "",
                 "apiKey": "", "apiKey_masked": "", "raw_ok": False}
 
 
@@ -971,7 +980,7 @@ class App(tk.Tk):
         self.lbl_reason.grid(row=5, column=0, sticky="e", pady=2, padx=(0, 6))
         self._fields["reasoning"] = tk.StringVar(value="high")
         self.cmb_reason = ttk.Combobox(rf, textvariable=self._fields["reasoning"],
-                                       values=["low", "medium", "high", "xhigh"],
+                                       values=["minimal", "low", "medium", "high", "xhigh"],
                                        width=41, state="readonly")
         self.cmb_reason.grid(row=5, column=1, sticky="w", pady=2)
         rf.grid_columnconfigure(1, weight=1)
@@ -1228,8 +1237,8 @@ class App(tk.Tk):
         entry = {"apiKey": key, "baseUrl": cur.get("baseUrl", ""),
                  "model": cur.get("model", "")}
         if t == "codex":
-            entry["wire_api"] = "responses"
-            entry["model_reasoning_effort"] = "high"
+            entry["wire_api"] = cur.get("wire_api") or "responses"
+            entry["model_reasoning_effort"] = cur.get("model_reasoning_effort") or "high"
         self._providers()["providers"][name] = entry
         self._save_db_and_refresh(preserve=name)
         if key:

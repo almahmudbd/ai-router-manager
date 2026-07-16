@@ -246,3 +246,16 @@ GEMINI.md
 /.cursor
 /.kiro
 /.windsurf
+
+# Auto-generated AI agent exclusions
+.cursor/
+.kiro/
+
+# Auto-generated AI agent exclusions
+MEMORY.md
+.windsurf/
+.clinerules
+.cursor/active-context.md
+.brainsync/memory.jsonl
+.brainsync/sync-state.json
+.brainsync/.context-key
